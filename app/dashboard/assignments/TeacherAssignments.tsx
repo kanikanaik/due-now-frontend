@@ -37,12 +37,13 @@ export default function TeacherAssignments() {
     message: "",
     type: "success" as "success" | "error",
   });
-  const [filter, setFilter] = useState<"all" | "active" | "overdue">("all");
+  const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
 
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("23:59");
 
   const filteredAssignments = assignments.filter((a) => {
     if (filter === "all") return true;
@@ -54,12 +55,16 @@ export default function TeacherAssignments() {
       setEditingAssignment(assignment);
       setTitle(assignment.title);
       setDescription(assignment.description);
-      setDueDate(assignment.dueDate);
+      // Extract date and time from ISO string
+      const dueDateObj = new Date(assignment.dueDate);
+      setDueDate(dueDateObj.toISOString().split('T')[0]);
+      setDueTime(dueDateObj.toTimeString().slice(0, 5));
     } else {
       setEditingAssignment(null);
       setTitle("");
       setDescription("");
       setDueDate("");
+      setDueTime("23:59");
     }
     setIsModalOpen(true);
   };
@@ -70,13 +75,17 @@ export default function TeacherAssignments() {
     setTitle("");
     setDescription("");
     setDueDate("");
+    setDueTime("23:59");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Combine date and time into ISO string
+    const dueDateTimeString = `${dueDate}T${dueTime}:00`;
+
     if (editingAssignment) {
-      updateAssignment(editingAssignment.id, { title, description, dueDate });
+      updateAssignment(editingAssignment.id, { title, description, dueDate: dueDateTimeString });
       setToast({
         isVisible: true,
         message: "Assignment updated successfully!",
@@ -86,9 +95,12 @@ export default function TeacherAssignments() {
       addAssignment({
         title,
         description,
-        dueDate,
+        dueDate: dueDateTimeString,
         teacherId: user?.id || "",
         teacherName: user?.name || "",
+        difficulty: "medium",
+        allowLateSubmission: true,
+        maxAttempts: 3,
       });
       setToast({
         isVisible: true,
@@ -147,7 +159,7 @@ export default function TeacherAssignments() {
 
       {/* Filter Tabs */}
       <div className="flex gap-2 mb-6">
-        {(["all", "active", "overdue"] as const).map((f) => (
+        {(["all", "published", "draft"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -247,14 +259,14 @@ export default function TeacherAssignments() {
                       <td className="px-6 py-4">
                         <Badge
                           variant={
-                            assignment.status === "active"
+                            assignment.status === "published"
                               ? "success"
                               : "warning"
                           }
                         >
-                          {assignment.status === "active"
-                            ? "Active"
-                            : "Overdue"}
+                          {assignment.status === "published"
+                            ? "Published"
+                            : "Draft"}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-sm text-[#6B7280]">
@@ -341,15 +353,27 @@ export default function TeacherAssignments() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dueDate">Due Date</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dueTime">Due Time</Label>
+                <Input
+                  id="dueTime"
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                  required
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button

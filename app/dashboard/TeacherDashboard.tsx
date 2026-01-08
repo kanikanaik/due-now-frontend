@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useAssignments, Assignment } from "@/app/context/AssignmentContext";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -36,6 +37,7 @@ export default function TeacherDashboard() {
   const { user } = useAuth();
   const {
     assignments,
+    submissions,
     addAssignment,
     updateAssignment,
     deleteAssignment,
@@ -66,7 +68,9 @@ export default function TeacherDashboard() {
   // Announcement form state
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
-  const [announcementType, setAnnouncementType] = useState<"global" | "assignment">("global");
+  const [announcementType, setAnnouncementType] = useState<
+    "global" | "assignment"
+  >("global");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
 
   // Stats
@@ -76,6 +80,15 @@ export default function TeacherDashboard() {
   ).length;
   const draftAssignments = assignments.filter(
     (a) => a.status === "draft"
+  ).length;
+  
+  // Get pending submissions to grade
+  const teacherSubmissions = submissions.filter((sub) => {
+    const assignment = assignments.find((a) => a.id === sub.assignmentId);
+    return assignment?.teacherId === user?.id;
+  });
+  const pendingGrades = teacherSubmissions.filter(
+    (sub) => !sub.grade || sub.grade.status === "not-graded"
   ).length;
 
   const handleOpenModal = (assignment?: Assignment) => {
@@ -120,9 +133,9 @@ export default function TeacherDashboard() {
     e.preventDefault();
 
     if (editingAssignment) {
-      updateAssignment(editingAssignment.id, { 
-        title, 
-        description, 
+      updateAssignment(editingAssignment.id, {
+        title,
+        description,
         dueDate,
         priority,
         difficulty,
@@ -142,7 +155,6 @@ export default function TeacherDashboard() {
         dueDate,
         teacherId: user?.id || "",
         teacherName: user?.name || "",
-        priority,
         difficulty,
         allowLateSubmission,
         maxAttempts,
@@ -159,21 +171,22 @@ export default function TeacherDashboard() {
 
   const handleAnnouncementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     addAnnouncement({
       title: announcementTitle,
       content: announcementContent,
       type: announcementType,
-      assignmentId: announcementType === "assignment" ? selectedAssignmentId : undefined,
+      assignmentId:
+        announcementType === "assignment" ? selectedAssignmentId : undefined,
       createdBy: user?.name || "",
     });
-    
+
     setToast({
       isVisible: true,
       message: "Announcement posted successfully!",
       type: "success",
     });
-    
+
     setIsAnnouncementModalOpen(false);
     setAnnouncementTitle("");
     setAnnouncementContent("");
@@ -213,7 +226,7 @@ export default function TeacherDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
         <Card className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#EEF2FF] flex items-center justify-center">
             <svg
@@ -285,6 +298,32 @@ export default function TeacherDashboard() {
             </p>
           </div>
         </Card>
+
+        <Link href="/dashboard/teacher-submissions">
+          <Card className="flex items-center gap-4 cursor-pointer hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 rounded-xl bg-[#FFEDD5] flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-[#EA580C]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-[#6B7280]">Pending Grades</p>
+              <p className="text-2xl font-semibold text-[#111827]">
+                {pendingGrades}
+              </p>
+            </div>
+          </Card>
+        </Link>
       </div>
 
       {/* Assignments Section */}
@@ -293,7 +332,10 @@ export default function TeacherDashboard() {
           Your Assignments
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsAnnouncementModalOpen(true)}>
+          <Button
+            variant="outline"
+            onClick={() => setIsAnnouncementModalOpen(true)}
+          >
             <svg
               className="w-5 h-5"
               fill="none"
@@ -336,8 +378,10 @@ export default function TeacherDashboard() {
       ) : (
         <div className="space-y-4">
           {assignments.map((assignment) => {
-            const submissionCount = getAssignmentSubmissions(assignment.id).length;
-            
+            const submissionCount = getAssignmentSubmissions(
+              assignment.id
+            ).length;
+
             return (
               <Card
                 key={assignment.id}
@@ -350,30 +394,51 @@ export default function TeacherDashboard() {
                     </h3>
                     <StatusBadge status={assignment.status} />
                   </div>
-                  
+
                   {/* Priority & Difficulty badges */}
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     <PriorityBadge priority={assignment.priority} />
                     <DifficultyBadge difficulty={assignment.difficulty} />
                   </div>
-                  
+
                   <p className="text-sm text-[#6B7280] line-clamp-2 mb-3">
                     {assignment.description}
                   </p>
-                  
+
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1.5 text-[#6B7280]">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
                       </svg>
                       {formatDate(assignment.dueDate)}
                     </div>
                     <DeadlineBadge dueDate={assignment.dueDate} />
                     <div className="flex items-center gap-1.5 text-[#6B7280]">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                        />
                       </svg>
-                      {submissionCount} submission{submissionCount !== 1 ? 's' : ''}
+                      {submissionCount} submission
+                      {submissionCount !== 1 ? "s" : ""}
                     </div>
                   </div>
                 </div>
@@ -415,10 +480,10 @@ export default function TeacherDashboard() {
                         strokeWidth={2}
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
-                  </svg>
-                </Button>
-              </div>
-            </Card>
+                    </svg>
+                  </Button>
+                </div>
+              </Card>
             );
           })}
         </div>
@@ -473,7 +538,9 @@ export default function TeacherDashboard() {
                   <select
                     id="status"
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as AssignmentStatus)}
+                    onChange={(e) =>
+                      setStatus(e.target.value as AssignmentStatus)
+                    }
                     className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="draft">Draft</option>
@@ -531,7 +598,9 @@ export default function TeacherDashboard() {
                     onChange={(e) => setAllowLateSubmission(e.target.checked)}
                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-gray-700">Allow late submissions</span>
+                  <span className="text-sm text-gray-700">
+                    Allow late submissions
+                  </span>
                 </label>
               </div>
             </div>
@@ -593,7 +662,9 @@ export default function TeacherDashboard() {
                     onChange={() => setAnnouncementType("global")}
                     className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-gray-700">Global Announcement</span>
+                  <span className="text-sm text-gray-700">
+                    Global Announcement
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -604,7 +675,9 @@ export default function TeacherDashboard() {
                     onChange={() => setAnnouncementType("assignment")}
                     className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-gray-700">Assignment Clarification</span>
+                  <span className="text-sm text-gray-700">
+                    Assignment Clarification
+                  </span>
                 </label>
               </div>
             </div>
@@ -620,7 +693,9 @@ export default function TeacherDashboard() {
                 >
                   <option value="">Select an assignment...</option>
                   {assignments.map((a) => (
-                    <option key={a.id} value={a.id}>{a.title}</option>
+                    <option key={a.id} value={a.id}>
+                      {a.title}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -633,9 +708,7 @@ export default function TeacherDashboard() {
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Post Announcement
-              </Button>
+              <Button type="submit">Post Announcement</Button>
             </DialogFooter>
           </form>
         </DialogContent>

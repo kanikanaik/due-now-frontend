@@ -11,7 +11,7 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
   const config = getStatusConfig(status);
-  
+
   return (
     <Badge variant={config.variant} className={className}>
       {config.label}
@@ -29,7 +29,12 @@ export function LockedBadge({ className = "" }: { className?: string }) {
         ${className}
       `}
     >
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        className="w-3.5 h-3.5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -44,28 +49,31 @@ export function LockedBadge({ className = "" }: { className?: string }) {
 
 // Feedback status badge
 interface FeedbackStatusBadgeProps {
-  status: 'reviewed' | 'needs-improvement' | 'pending';
+  status: "reviewed" | "needs-improvement" | "pending";
   className?: string;
 }
 
-export function FeedbackStatusBadge({ status, className = "" }: FeedbackStatusBadgeProps) {
+export function FeedbackStatusBadge({
+  status,
+  className = "",
+}: FeedbackStatusBadgeProps) {
   const configs = {
-    'reviewed': {
-      label: 'Reviewed',
-      className: 'bg-green-100 text-green-700 border border-green-200',
+    reviewed: {
+      label: "Reviewed",
+      className: "bg-green-100 text-green-700 border border-green-200",
     },
-    'needs-improvement': {
-      label: 'Needs Improvement',
-      className: 'bg-amber-100 text-amber-700 border border-amber-200',
+    "needs-improvement": {
+      label: "Needs Improvement",
+      className: "bg-amber-100 text-amber-700 border border-amber-200",
     },
-    'pending': {
-      label: 'Pending Review',
-      className: 'bg-gray-100 text-gray-600 border border-gray-200',
+    pending: {
+      label: "Pending Review",
+      className: "bg-gray-100 text-gray-600 border border-gray-200",
     },
   };
-  
+
   const config = configs[status];
-  
+
   return (
     <span
       className={`
@@ -74,19 +82,49 @@ export function FeedbackStatusBadge({ status, className = "" }: FeedbackStatusBa
         ${className}
       `}
     >
-      {status === 'reviewed' && (
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      {status === "reviewed" && (
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
         </svg>
       )}
-      {status === 'needs-improvement' && (
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      {status === "needs-improvement" && (
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
         </svg>
       )}
-      {status === 'pending' && (
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      {status === "pending" && (
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
         </svg>
       )}
       {config.label}

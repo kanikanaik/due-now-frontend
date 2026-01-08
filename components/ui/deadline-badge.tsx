@@ -9,10 +9,14 @@ interface DeadlineBadgeProps {
   showIcon?: boolean;
 }
 
-export function DeadlineBadge({ dueDate, className = "", showIcon = true }: DeadlineBadgeProps) {
+export function DeadlineBadge({
+  dueDate,
+  className = "",
+  showIcon = true,
+}: DeadlineBadgeProps) {
   const deadlineInfo = getDeadlineInfo(dueDate);
   const urgencyClasses = getUrgencyClasses(deadlineInfo.urgency);
-  
+
   return (
     <div
       className={`

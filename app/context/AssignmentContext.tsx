@@ -1,11 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { 
-  AssignmentStatus, 
-  Priority, 
-  Difficulty, 
-  FeedbackStatus 
+import {
+  AssignmentStatus,
+  Priority,
+  Difficulty,
+  FeedbackStatus,
+  GradeStatus,
+  LetterGrade,
+  calculatePriorityFromDeadline,
 } from "@/lib/assignment-utils";
 
 export interface Feedback {
@@ -16,6 +19,40 @@ export interface Feedback {
   content: string;
   status: FeedbackStatus;
   createdAt: string;
+}
+
+export interface RubricCriterion {
+  id: string;
+  name: string;
+  weight: number;
+  score?: number;
+}
+
+export interface Grade {
+  id: string;
+  submissionId: string;
+  teacherId: string;
+  teacherName: string;
+  numericScore?: number;
+  letterGrade?: LetterGrade;
+  rubricScores?: RubricCriterion[];
+  totalScore?: number;
+  comments?: string;
+  status: GradeStatus;
+  gradedAt?: string;
+  publishedAt?: string;
+}
+
+export interface GradeReviewRequest {
+  id: string;
+  gradeId: string;
+  studentId: string;
+  studentName: string;
+  message: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+  respondedAt?: string;
+  responseMessage?: string;
 }
 
 export interface SubmissionAttempt {
@@ -29,7 +66,7 @@ export interface Announcement {
   id: string;
   title: string;
   content: string;
-  type: 'global' | 'assignment';
+  type: "global" | "assignment";
   assignmentId?: string;
   createdAt: string;
   createdBy: string;
@@ -50,6 +87,7 @@ export interface Assignment {
   attachmentUrl?: string;
   allowLateSubmission: boolean;
   maxAttempts: number;
+  rubric?: RubricCriterion[];
 }
 
 export interface Submission {
@@ -65,24 +103,47 @@ export interface Submission {
   currentAttempt: number;
   integrityConfirmed: boolean;
   feedback?: Feedback;
+  grade?: Grade;
 }
 
 interface AssignmentContextType {
   assignments: Assignment[];
   submissions: Submission[];
   announcements: Announcement[];
+  gradeReviewRequests: GradeReviewRequest[];
   addAssignment: (
-    assignment: Omit<Assignment, "id" | "createdAt" | "status">
+    assignment: Omit<Assignment, "id" | "createdAt" | "status" | "priority">
   ) => void;
   updateAssignment: (id: string, assignment: Partial<Assignment>) => void;
   deleteAssignment: (id: string) => void;
   submitAssignment: (
-    submission: Omit<Submission, "id" | "submittedAt" | "status" | "attemptHistory" | "currentAttempt">
+    submission: Omit<
+      Submission,
+      "id" | "submittedAt" | "status" | "attemptHistory" | "currentAttempt"
+    >
   ) => void;
   getStudentSubmissions: (studentId: string) => Submission[];
   getAssignmentSubmissions: (assignmentId: string) => Submission[];
-  addFeedback: (submissionId: string, feedback: Omit<Feedback, "id" | "createdAt" | "submissionId">) => void;
-  addAnnouncement: (announcement: Omit<Announcement, "id" | "createdAt">) => void;
+  addFeedback: (
+    submissionId: string,
+    feedback: Omit<Feedback, "id" | "createdAt" | "submissionId">
+  ) => void;
+  addGrade: (
+    submissionId: string,
+    grade: Omit<Grade, "id" | "submissionId" | "gradedAt" | "publishedAt">
+  ) => void;
+  updateGrade: (gradeId: string, updates: Partial<Grade>) => void;
+  publishGrade: (gradeId: string) => void;
+  addGradeReviewRequest: (
+    request: Omit<GradeReviewRequest, "id" | "createdAt" | "status">
+  ) => void;
+  respondToReviewRequest: (
+    requestId: string,
+    response: { status: 'accepted' | 'declined'; message?: string }
+  ) => void;
+  addAnnouncement: (
+    announcement: Omit<Announcement, "id" | "createdAt">
+  ) => void;
   dismissAnnouncement: (announcementId: string) => void;
   getAssignmentAnnouncements: (assignmentId: string) => Announcement[];
 }
@@ -213,9 +274,72 @@ const mockSubmissions: Submission[] = [
       submissionId: "1",
       teacherId: "1",
       teacherName: "Dr. Sarah Johnson",
-      content: "Good work! Your explanation of useEffect was particularly clear. Consider adding more examples of custom hooks in future submissions.",
+      content:
+        "Good work! Your explanation of useEffect was particularly clear. Consider adding more examples of custom hooks in future submissions.",
       status: "reviewed",
       createdAt: "2024-12-31T09:00:00",
+    },
+    grade: {
+      id: "g1",
+      submissionId: "1",
+      teacherId: "1",
+      teacherName: "Dr. Sarah Johnson",
+      numericScore: 88,
+      letterGrade: "B",
+      comments: "Excellent understanding of React Hooks concepts. Your code examples were clear and well-documented. To achieve a higher grade, consider exploring more advanced hook patterns like useReducer and custom hooks.",
+      status: "finalized",
+      gradedAt: "2024-12-31T10:00:00",
+      publishedAt: "2024-12-31T10:00:00",
+    },
+  },
+  {
+    id: "2",
+    assignmentId: "3",
+    studentId: "2",
+    studentName: "Alex Chen",
+    submittedAt: "2024-12-27T18:00:00",
+    textContent: "Analysis of sorting algorithms including bubble sort, merge sort, and quick sort...",
+    status: "submitted",
+    attemptHistory: [
+      {
+        attemptNumber: 1,
+        submittedAt: "2024-12-27T18:00:00",
+        textContent: "Analysis of sorting algorithms including bubble sort, merge sort, and quick sort...",
+      },
+    ],
+    currentAttempt: 1,
+    integrityConfirmed: true,
+    grade: {
+      id: "g2",
+      submissionId: "2",
+      teacherId: "1",
+      teacherName: "Dr. Sarah Johnson",
+      rubricScores: [
+        {
+          id: "r1",
+          name: "Algorithm Understanding",
+          weight: 40,
+          score: 95,
+        },
+        {
+          id: "r2",
+          name: "Big O Notation",
+          weight: 35,
+          score: 90,
+        },
+        {
+          id: "r3",
+          name: "Code Quality",
+          weight: 25,
+          score: 85,
+        },
+      ],
+      totalScore: 91,
+      letterGrade: "A",
+      comments: "Outstanding work! Your analysis demonstrates deep understanding of algorithm complexity. The comparison charts were particularly well done.",
+      status: "finalized",
+      gradedAt: "2024-12-28T11:00:00",
+      publishedAt: "2024-12-28T11:00:00",
     },
   },
 ];
@@ -224,7 +348,8 @@ const mockAnnouncements: Announcement[] = [
   {
     id: "a1",
     title: "Office Hours Extended",
-    content: "Office hours will be extended during the final week of the semester. Feel free to drop by for any questions about your assignments.",
+    content:
+      "Office hours will be extended during the final week of the semester. Feel free to drop by for any questions about your assignments.",
     type: "global",
     createdAt: "2024-12-30T08:00:00",
     createdBy: "Dr. Sarah Johnson",
@@ -232,7 +357,8 @@ const mockAnnouncements: Announcement[] = [
   {
     id: "a2",
     title: "Clarification on Requirements",
-    content: "For the React Hooks assignment, you may use TypeScript if you prefer. Make sure to include at least 3 code examples.",
+    content:
+      "For the React Hooks assignment, you may use TypeScript if you prefer. Make sure to include at least 3 code examples.",
     type: "assignment",
     assignmentId: "1",
     createdAt: "2024-12-29T10:00:00",
@@ -243,25 +369,39 @@ const mockAnnouncements: Announcement[] = [
 export function AssignmentProvider({ children }: { children: ReactNode }) {
   const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments);
   const [submissions, setSubmissions] = useState<Submission[]>(mockSubmissions);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(mockAnnouncements);
+  const [announcements, setAnnouncements] =
+    useState<Announcement[]>(mockAnnouncements);
+  const [gradeReviewRequests, setGradeReviewRequests] = useState<GradeReviewRequest[]>([]);
 
   const addAssignment = (
-    assignment: Omit<Assignment, "id" | "createdAt" | "status">
+    assignment: Omit<Assignment, "id" | "createdAt" | "status" | "priority">
   ) => {
+    // Auto-calculate priority based on deadline
+    const priority = calculatePriorityFromDeadline(assignment.dueDate);
+    
     const newAssignment: Assignment = {
       ...assignment,
       id: Date.now().toString(),
-      createdAt: new Date().toISOString().split("T")[0],
-      status: "draft",
+      createdAt: new Date().toISOString(),
+      status: "published",
+      priority,
     };
     setAssignments((prev) => [...prev, newAssignment]);
   };
 
   const updateAssignment = (id: string, updatedData: Partial<Assignment>) => {
     setAssignments((prev) =>
-      prev.map((assignment) =>
-        assignment.id === id ? { ...assignment, ...updatedData } : assignment
-      )
+      prev.map((assignment) => {
+        if (assignment.id === id) {
+          const updates = { ...updatedData };
+          // Recalculate priority if due date is being updated
+          if (updatedData.dueDate) {
+            updates.priority = calculatePriorityFromDeadline(updatedData.dueDate);
+          }
+          return { ...assignment, ...updates };
+        }
+        return assignment;
+      })
     );
   };
 
@@ -270,14 +410,21 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
   };
 
   const submitAssignment = (
-    submission: Omit<Submission, "id" | "submittedAt" | "status" | "attemptHistory" | "currentAttempt">
+    submission: Omit<
+      Submission,
+      "id" | "submittedAt" | "status" | "attemptHistory" | "currentAttempt"
+    >
   ) => {
     const existingSubmission = submissions.find(
-      (s) => s.assignmentId === submission.assignmentId && s.studentId === submission.studentId
+      (s) =>
+        s.assignmentId === submission.assignmentId &&
+        s.studentId === submission.studentId
     );
-    const assignment = assignments.find((a) => a.id === submission.assignmentId);
+    const assignment = assignments.find(
+      (a) => a.id === submission.assignmentId
+    );
     const isLate = assignment && new Date(assignment.dueDate) < new Date();
-    
+
     if (existingSubmission) {
       // Update existing submission with new attempt
       const newAttempt: SubmissionAttempt = {
@@ -286,7 +433,7 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
         textContent: submission.textContent,
         fileUrl: submission.fileUrl,
       };
-      
+
       setSubmissions((prev) =>
         prev.map((s) =>
           s.id === existingSubmission.id
@@ -341,7 +488,7 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
       submissionId,
       createdAt: new Date().toISOString(),
     };
-    
+
     setSubmissions((prev) =>
       prev.map((s) =>
         s.id === submissionId ? { ...s, feedback: newFeedback } : s
@@ -349,7 +496,85 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const addAnnouncement = (announcement: Omit<Announcement, "id" | "createdAt">) => {
+  const addGrade = (
+    submissionId: string,
+    grade: Omit<Grade, "id" | "submissionId" | "gradedAt" | "publishedAt">
+  ) => {
+    const newGrade: Grade = {
+      ...grade,
+      id: Date.now().toString(),
+      submissionId,
+      gradedAt: new Date().toISOString(),
+      publishedAt: grade.status === 'finalized' ? new Date().toISOString() : undefined,
+    };
+
+    setSubmissions((prev) =>
+      prev.map((s) =>
+        s.id === submissionId ? { ...s, grade: newGrade } : s
+      )
+    );
+  };
+
+  const updateGrade = (gradeId: string, updates: Partial<Grade>) => {
+    setSubmissions((prev) =>
+      prev.map((s) =>
+        s.grade?.id === gradeId
+          ? { ...s, grade: { ...s.grade, ...updates } }
+          : s
+      )
+    );
+  };
+
+  const publishGrade = (gradeId: string) => {
+    setSubmissions((prev) =>
+      prev.map((s) =>
+        s.grade?.id === gradeId
+          ? {
+              ...s,
+              grade: {
+                ...s.grade,
+                status: 'finalized',
+                publishedAt: new Date().toISOString(),
+              },
+            }
+          : s
+      )
+    );
+  };
+
+  const addGradeReviewRequest = (
+    request: Omit<GradeReviewRequest, "id" | "createdAt" | "status">
+  ) => {
+    const newRequest: GradeReviewRequest = {
+      ...request,
+      id: Date.now().toString(),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    setGradeReviewRequests((prev) => [...prev, newRequest]);
+  };
+
+  const respondToReviewRequest = (
+    requestId: string,
+    response: { status: 'accepted' | 'declined'; message?: string }
+  ) => {
+    setGradeReviewRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: response.status,
+              respondedAt: new Date().toISOString(),
+              responseMessage: response.message,
+            }
+          : r
+      )
+    );
+  };
+
+  const addAnnouncement = (
+    announcement: Omit<Announcement, "id" | "createdAt">
+  ) => {
     const newAnnouncement: Announcement = {
       ...announcement,
       id: Date.now().toString(),
@@ -360,9 +585,7 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
 
   const dismissAnnouncement = (announcementId: string) => {
     setAnnouncements((prev) =>
-      prev.map((a) =>
-        a.id === announcementId ? { ...a, isRead: true } : a
-      )
+      prev.map((a) => (a.id === announcementId ? { ...a, isRead: true } : a))
     );
   };
 
@@ -378,6 +601,7 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
         assignments,
         submissions,
         announcements,
+        gradeReviewRequests,
         addAssignment,
         updateAssignment,
         deleteAssignment,
@@ -385,6 +609,11 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
         getStudentSubmissions,
         getAssignmentSubmissions,
         addFeedback,
+        addGrade,
+        updateGrade,
+        publishGrade,
+        addGradeReviewRequest,
+        respondToReviewRequest,
         addAnnouncement,
         dismissAnnouncement,
         getAssignmentAnnouncements,

@@ -12,33 +12,44 @@ interface WeeklyWorkloadProps {
   studentSubmissions?: string[]; // Array of submitted assignment IDs
 }
 
-export function WeeklyWorkload({ assignments, studentSubmissions = [] }: WeeklyWorkloadProps) {
+export function WeeklyWorkload({
+  assignments,
+  studentSubmissions = [],
+}: WeeklyWorkloadProps) {
   const { thisWeek, nextWeek } = getWeeklyAssignments(assignments);
-  
+
   // Filter out submitted assignments for students
-  const pendingThisWeek = thisWeek.filter(a => !studentSubmissions.includes(a.id));
-  const pendingNextWeek = nextWeek.filter(a => !studentSubmissions.includes(a.id));
-  
+  const pendingThisWeek = thisWeek.filter(
+    (a) => !studentSubmissions.includes(a.id)
+  );
+  const pendingNextWeek = nextWeek.filter(
+    (a) => !studentSubmissions.includes(a.id)
+  );
+
   const formatShortDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
     });
   };
-  
+
   const renderAssignmentItem = (assignment: Assignment) => {
     const deadlineInfo = getDeadlineInfo(assignment.dueDate);
-    
+
     return (
       <Link
         key={assignment.id}
         href={`/dashboard/assignments/${assignment.id}`}
         className={`
           block p-3 rounded-lg border transition-all hover:shadow-sm
-          ${deadlineInfo.urgency === 'urgent' ? 'border-amber-200 bg-amber-50/50' : 
-            deadlineInfo.urgency === 'warning' ? 'border-yellow-200 bg-yellow-50/30' : 
-            'border-gray-200 bg-white hover:border-gray-300'}
+          ${
+            deadlineInfo.urgency === "urgent"
+              ? "border-amber-200 bg-amber-50/50"
+              : deadlineInfo.urgency === "warning"
+              ? "border-yellow-200 bg-yellow-50/30"
+              : "border-gray-200 bg-white hover:border-gray-300"
+          }
         `}
       >
         <div className="flex items-start justify-between gap-2 mb-2">
@@ -51,22 +62,34 @@ export function WeeklyWorkload({ assignments, studentSubmissions = [] }: WeeklyW
           </div>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">{formatShortDate(assignment.dueDate)}</span>
+          <span className="text-xs text-gray-500">
+            {formatShortDate(assignment.dueDate)}
+          </span>
           <DeadlineBadge dueDate={assignment.dueDate} showIcon={false} />
         </div>
       </Link>
     );
   };
-  
+
   const EmptyWeek = ({ message }: { message: string }) => (
     <div className="text-center py-6 text-gray-400">
-      <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <svg
+        className="w-8 h-8 mx-auto mb-2 opacity-50"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
       <p className="text-sm">{message}</p>
     </div>
   );
-  
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
@@ -89,7 +112,7 @@ export function WeeklyWorkload({ assignments, studentSubmissions = [] }: WeeklyW
             )}
           </div>
         </div>
-        
+
         {/* Next Week */}
         <div className="p-4">
           <div className="flex items-center gap-2 mb-4">

@@ -48,4 +48,27 @@ export { ProgressSnapshot } from "./progress-snapshot"
 export { WeeklyWorkload } from "./weekly-workload"
 export { IntegrityConfirmation, SubmissionLockNotice } from "./integrity-confirmation"
 export { AnnouncementList, AssignmentAnnouncements } from "./announcements"
-export { EmptyState, NoAssignmentsEmpty, NoSubmissionsEmpty, AllCaughtUpEmpty, NoSearchResultsEmpty } from "./empty-states"
+
+// Grading system components
+export { 
+  GradeStatusBadge, 
+  LetterGradeBadge, 
+  NumericScoreBadge,
+  GradeVisibilityNote 
+} from "./grade-badge"
+export { GradingPanel } from "./grading-panel"
+export { StudentGradeView } from "./student-grade-view"
+export { GradesOverview } from "./grades-overview"
+export { 
+  GradeReviewRequestPanel, 
+  TeacherReviewRequestList 
+} from "./grade-review-request"
+
+// Empty states
+export { 
+  EmptyState, 
+  NoAssignmentsEmpty, 
+  NoSubmissionsEmpty, 
+  AllCaughtUpEmpty, 
+  NoSearchResultsEmpty 
+} from "./empty-states"

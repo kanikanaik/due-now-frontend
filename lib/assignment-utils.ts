@@ -4,6 +4,8 @@ export type AssignmentStatus = 'draft' | 'published' | 'submitted' | 'late' | 'c
 export type Priority = 'low' | 'medium' | 'high';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type FeedbackStatus = 'reviewed' | 'needs-improvement' | 'pending';
+export type GradeStatus = 'not-graded' | 'draft' | 'finalized';
+export type LetterGrade = 'A' | 'B' | 'C' | 'D' | 'F';
 
 export interface DeadlineInfo {
   label: string;
@@ -245,5 +247,84 @@ export function getDifficultyConfig(difficulty: Difficulty): {
         label: 'Easy',
         className: 'bg-teal-100 text-teal-700 border border-teal-200',
       };
+  }
+}
+
+/**
+ * Get grade status configuration for badges
+ */
+export function getGradeStatusConfig(status: GradeStatus): {
+  label: string;
+  className: string;
+} {
+  switch (status) {
+    case 'not-graded':
+      return {
+        label: 'Not Graded',
+        className: 'bg-gray-100 text-gray-600 border border-gray-200',
+      };
+    case 'draft':
+      return {
+        label: 'Graded (Draft)',
+        className: 'bg-amber-50 text-amber-700 border border-amber-200',
+      };
+    case 'finalized':
+      return {
+        label: 'Graded (Final)',
+        className: 'bg-green-50 text-green-700 border border-green-200',
+      };
+  }
+}
+
+/**
+ * Convert numeric score to letter grade
+ */
+export function scoreToLetterGrade(score: number): LetterGrade {
+  if (score >= 90) return 'A';
+  if (score >= 80) return 'B';
+  if (score >= 70) return 'C';
+  if (score >= 60) return 'D';
+  return 'F';
+}
+
+/**
+ * Get letter grade color
+ */
+export function getLetterGradeColor(grade: LetterGrade): string {
+  switch (grade) {
+    case 'A':
+      return 'text-green-600';
+    case 'B':
+      return 'text-blue-600';
+    case 'C':
+      return 'text-indigo-600';
+    case 'D':
+      return 'text-amber-600';
+    case 'F':
+      return 'text-gray-600';
+  }
+}
+
+/**
+ * Calculate priority based on days until deadline
+ * High: 0-5 days
+ * Medium: 6-10 days
+ * Low: 11+ days
+ */
+export function calculatePriorityFromDeadline(dueDate: string): Priority {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(23, 59, 59, 999);
+  
+  const diffTime = due.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays <= 5) {
+    return 'high';
+  } else if (diffDays <= 10) {
+    return 'medium';
+  } else {
+    return 'low';
   }
 }

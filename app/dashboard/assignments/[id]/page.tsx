@@ -22,6 +22,10 @@ import {
   SubmissionLockNotice,
   AssignmentAnnouncements,
   LockedBadge,
+  GradingPanel,
+  StudentGradeView,
+  GradeReviewRequestPanel,
+  TeacherReviewRequestList,
 } from "@/components/ui";
 import { getDeadlineInfo } from "@/lib/assignment-utils";
 
@@ -29,12 +33,18 @@ export default function AssignmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { 
-    assignments, 
-    getStudentSubmissions, 
+  const {
+    assignments,
+    getStudentSubmissions,
     submitAssignment,
     getAssignmentAnnouncements,
     addFeedback,
+    addGrade,
+    updateGrade,
+    publishGrade,
+    addGradeReviewRequest,
+    respondToReviewRequest,
+    gradeReviewRequests,
   } = useAssignments();
 
   const [submissionText, setSubmissionText] = useState("");
@@ -90,11 +100,13 @@ export default function AssignmentDetailPage() {
   const deadlineInfo = getDeadlineInfo(assignment.dueDate);
   const isOverdue = deadlineInfo.isLocked;
   const hasSubmitted = !!existingSubmission;
-  const isLocked = isOverdue && !assignment.allowLateSubmission && !hasSubmitted;
-  const canSubmit = !isLocked && (
-    !hasSubmitted || 
-    (existingSubmission && existingSubmission.currentAttempt < assignment.maxAttempts)
-  );
+  const isLocked =
+    isOverdue && !assignment.allowLateSubmission && !hasSubmitted;
+  const canSubmit =
+    !isLocked &&
+    (!hasSubmitted ||
+      (existingSubmission &&
+        existingSubmission.currentAttempt < assignment.maxAttempts));
   const assignmentAnnouncements = getAssignmentAnnouncements(assignmentId);
 
   const formatDate = (dateStr: string) => {
@@ -150,7 +162,10 @@ export default function AssignmentDetailPage() {
     setIntegrityConfirmed(false);
   };
 
-  const handleAddFeedback = (content: string, status: 'reviewed' | 'needs-improvement') => {
+  const handleAddFeedback = (
+    content: string,
+    status: "reviewed" | "needs-improvement"
+  ) => {
     if (existingSubmission) {
       addFeedback(existingSubmission.id, {
         teacherId: user?.id || "",
@@ -165,6 +180,57 @@ export default function AssignmentDetailPage() {
       });
     }
   };
+
+  const handleSaveGrade = (grade: any) => {
+    if (existingSubmission) {
+      if (existingSubmission.grade) {
+        updateGrade(existingSubmission.grade.id, grade);
+      } else {
+        addGrade(existingSubmission.id, grade);
+      }
+      setToast({
+        isVisible: true,
+        message: grade.status === 'finalized' 
+          ? "Grade published successfully!" 
+          : "Grade saved as draft!",
+        type: "success",
+      });
+    }
+  };
+
+  const handleGradeReviewRequest = (message: string) => {
+    if (existingSubmission?.grade) {
+      addGradeReviewRequest({
+        gradeId: existingSubmission.grade.id,
+        studentId: user?.id || "",
+        studentName: user?.name || "",
+        message,
+      });
+      setToast({
+        isVisible: true,
+        message: "Review request submitted!",
+        type: "success",
+      });
+    }
+  };
+
+  const handleRespondToReview = (
+    requestId: string,
+    status: 'accepted' | 'declined',
+    message?: string
+  ) => {
+    respondToReviewRequest(requestId, { status, message });
+    setToast({
+      isVisible: true,
+      message: `Review request ${status}!`,
+      type: "success",
+    });
+  };
+
+  // Get review requests for current grade
+  const currentGradeReviewRequests = existingSubmission?.grade
+    ? gradeReviewRequests.filter(r => r.gradeId === existingSubmission.grade?.id)
+    : [];
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -212,7 +278,8 @@ export default function AssignmentDetailPage() {
           <PriorityBadge priority={assignment.priority} />
           <DifficultyBadge difficulty={assignment.difficulty} />
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-            {assignment.maxAttempts} attempt{assignment.maxAttempts !== 1 ? 's' : ''} allowed
+            {assignment.maxAttempts} attempt
+            {assignment.maxAttempts !== 1 ? "s" : ""} allowed
           </span>
           {assignment.allowLateSubmission && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
@@ -225,9 +292,7 @@ export default function AssignmentDetailPage() {
         <div className="flex items-center gap-3 mb-6">
           <div
             className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${
-              isOverdue
-                ? "bg-red-50 text-red-600"
-                : "bg-gray-50 text-gray-600"
+              isOverdue ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-600"
             }`}
           >
             <svg
@@ -346,58 +411,89 @@ export default function AssignmentDetailPage() {
               )}
 
               {/* Submission History */}
-              {existingSubmission.attemptHistory && existingSubmission.attemptHistory.length > 0 && (
-                <SubmissionHistory
-                  attempts={existingSubmission.attemptHistory}
-                  currentAttempt={existingSubmission.currentAttempt}
-                  maxAttempts={assignment.maxAttempts}
-                />
-              )}
+              {existingSubmission.attemptHistory &&
+                existingSubmission.attemptHistory.length > 0 && (
+                  <SubmissionHistory
+                    attempts={existingSubmission.attemptHistory}
+                    currentAttempt={existingSubmission.currentAttempt}
+                    maxAttempts={assignment.maxAttempts}
+                  />
+                )}
 
               {/* Feedback Panel */}
               <FeedbackPanel feedback={existingSubmission.feedback} />
 
-              {/* Resubmit option */}
-              {canSubmit && existingSubmission.currentAttempt < assignment.maxAttempts && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-900 mb-4">
-                    Resubmit Assignment
-                    <span className="ml-2 text-xs font-normal text-gray-500">
-                      ({assignment.maxAttempts - existingSubmission.currentAttempt} attempts remaining)
-                    </span>
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="resubmit-response">Updated Response</Label>
-                      <Textarea
-                        id="resubmit-response"
-                        placeholder="Write your updated answer here..."
-                        value={submissionText}
-                        onChange={(e) => setSubmissionText(e.target.value)}
-                        className="min-h-[120px]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#111827] mb-2">
-                        Attach File (Optional)
-                      </label>
-                      <FileUpload onFileSelect={(file) => setSelectedFile(file)} />
-                    </div>
-                    <IntegrityConfirmation
-                      isChecked={integrityConfirmed}
-                      onChange={setIntegrityConfirmed}
-                    />
-                    <Button
-                      onClick={handleSubmit}
-                      className="w-full"
-                      isLoading={isSubmitting}
-                      disabled={isSubmitting || (!submissionText && !selectedFile) || !integrityConfirmed}
-                    >
-                      Resubmit Assignment
-                    </Button>
-                  </div>
-                </div>
+              {/* Student Grade View */}
+              <StudentGradeView
+                grade={existingSubmission.grade}
+                assignmentTitle={assignment.title}
+                submittedAt={existingSubmission.submittedAt}
+              />
+
+              {/* Grade Review Request */}
+              {existingSubmission.grade?.status === "finalized" && (
+                <GradeReviewRequestPanel
+                  gradeId={existingSubmission.grade.id}
+                  studentId={user?.id || ""}
+                  studentName={user?.name || ""}
+                  existingRequest={currentGradeReviewRequests[0]}
+                  onSubmitRequest={handleGradeReviewRequest}
+                />
               )}
+
+              {/* Resubmit option */}
+              {canSubmit &&
+                existingSubmission.currentAttempt < assignment.maxAttempts && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-900 mb-4">
+                      Resubmit Assignment
+                      <span className="ml-2 text-xs font-normal text-gray-500">
+                        (
+                        {assignment.maxAttempts -
+                          existingSubmission.currentAttempt}{" "}
+                        attempts remaining)
+                      </span>
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="resubmit-response">
+                          Updated Response
+                        </Label>
+                        <Textarea
+                          id="resubmit-response"
+                          placeholder="Write your updated answer here..."
+                          value={submissionText}
+                          onChange={(e) => setSubmissionText(e.target.value)}
+                          className="min-h-[120px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[#111827] mb-2">
+                          Attach File (Optional)
+                        </label>
+                        <FileUpload
+                          onFileSelect={(file) => setSelectedFile(file)}
+                        />
+                      </div>
+                      <IntegrityConfirmation
+                        isChecked={integrityConfirmed}
+                        onChange={setIntegrityConfirmed}
+                      />
+                      <Button
+                        onClick={handleSubmit}
+                        className="w-full"
+                        isLoading={isSubmitting}
+                        disabled={
+                          isSubmitting ||
+                          (!submissionText && !selectedFile) ||
+                          !integrityConfirmed
+                        }
+                      >
+                        Resubmit Assignment
+                      </Button>
+                    </div>
+                  </div>
+                )}
             </div>
           ) : (
             <div className="space-y-6">
@@ -432,7 +528,8 @@ export default function AssignmentDetailPage() {
                             This assignment is overdue
                           </p>
                           <p className="text-sm text-amber-600">
-                            Late submissions are still accepted but will be marked as late.
+                            Late submissions are still accepted but will be
+                            marked as late.
                           </p>
                         </div>
                       </div>
@@ -454,7 +551,9 @@ export default function AssignmentDetailPage() {
                     <label className="block text-sm font-medium text-[#111827] mb-2">
                       Attach File (Optional)
                     </label>
-                    <FileUpload onFileSelect={(file) => setSelectedFile(file)} />
+                    <FileUpload
+                      onFileSelect={(file) => setSelectedFile(file)}
+                    />
                   </div>
 
                   {/* Academic Integrity Confirmation */}
@@ -468,7 +567,11 @@ export default function AssignmentDetailPage() {
                     className="w-full"
                     size="lg"
                     isLoading={isSubmitting}
-                    disabled={isSubmitting || (!submissionText && !selectedFile) || !integrityConfirmed}
+                    disabled={
+                      isSubmitting ||
+                      (!submissionText && !selectedFile) ||
+                      !integrityConfirmed
+                    }
                   >
                     <svg
                       className="w-5 h-5"
@@ -498,27 +601,30 @@ export default function AssignmentDetailPage() {
           <h2 className="text-lg font-semibold text-[#111827] mb-6">
             Student Submission Review
           </h2>
-          
+
           {/* Submission Info */}
           <div className="mb-6 p-4 rounded-lg bg-gray-50 border border-gray-200">
             <p className="text-sm text-gray-600 mb-2">
-              <span className="font-medium">Student:</span> {existingSubmission.studentName}
+              <span className="font-medium">Student:</span>{" "}
+              {existingSubmission.studentName}
             </p>
             <p className="text-sm text-gray-600">
-              <span className="font-medium">Submitted:</span> {formatDate(existingSubmission.submittedAt)}
+              <span className="font-medium">Submitted:</span>{" "}
+              {formatDate(existingSubmission.submittedAt)}
             </p>
           </div>
 
           {/* Submission History for Teacher */}
-          {existingSubmission.attemptHistory && existingSubmission.attemptHistory.length > 0 && (
-            <div className="mb-6">
-              <SubmissionHistory
-                attempts={existingSubmission.attemptHistory}
-                currentAttempt={existingSubmission.currentAttempt}
-                maxAttempts={assignment.maxAttempts}
-              />
-            </div>
-          )}
+          {existingSubmission.attemptHistory &&
+            existingSubmission.attemptHistory.length > 0 && (
+              <div className="mb-6">
+                <SubmissionHistory
+                  attempts={existingSubmission.attemptHistory}
+                  currentAttempt={existingSubmission.currentAttempt}
+                  maxAttempts={assignment.maxAttempts}
+                />
+              </div>
+            )}
 
           {/* Add/View Feedback */}
           <FeedbackPanel
@@ -526,6 +632,33 @@ export default function AssignmentDetailPage() {
             isTeacher={true}
             onSubmitFeedback={handleAddFeedback}
           />
+
+          {/* Grade Review Requests */}
+          {currentGradeReviewRequests.length > 0 && (
+            <div className="mt-6">
+              <TeacherReviewRequestList
+                requests={currentGradeReviewRequests}
+                onRespond={handleRespondToReview}
+              />
+            </div>
+          )}
+
+          {/* Grading Panel */}
+          <div className="mt-6">
+            <GradingPanel
+              submissionId={existingSubmission.id}
+              teacherId={user?.id || ""}
+              teacherName={user?.name || ""}
+              existingGrade={existingSubmission.grade}
+              assignmentRubric={assignment.rubric}
+              onSaveGrade={handleSaveGrade}
+              onPublishGrade={
+                existingSubmission.grade?.status === "draft"
+                  ? () => publishGrade(existingSubmission.grade!.id)
+                  : undefined
+              }
+            />
+          </div>
         </Card>
       )}
 
